@@ -1,58 +1,8 @@
 #include "um_parser.h"
 #include <stdio.h>
-#include <sys/types.h>
-#include <sys/types.h>
 #include <stdlib.h>
-
-
-
-unsigned int concatonate_bytes(struct byte_quintuple bq) {
-  return ((((unsigned int) bq.A) << 24) & 0xFF000000) |
-  ((((unsigned int) bq.B) << 16) & 0xFF0000) |
-  ((((unsigned int) bq.C) << 8) & 0xFF00) |
-  (((unsigned int) bq.D) & 0xFF);
-};
-
-struct parse_info parse_quintuple(FILE* f) {
-  char b[4];
-  int info = PARSE_INFO_OK;
-  for (unsigned int i = 0; i < 4 ; i++) {
-    char c = fgetc(f);
-    if (c==EOF) {
-      info = PARSE_INFO_EOF;
-      break;
-    }
-    b[i] = c;
-  }
-  struct byte_quintuple bq = {b[0],b[1],b[2],b[3]};
-  unsigned int opcode = concatonate_bytes(bq);
-  if (parse_opcode(opcode) == 0xE || parse_opcode(opcode) == 0xF) {
-    info = PARSE_INFO_INVALID_OPCODE;
-  }
-  struct parse_info pf = {opcode, info};
-
-  return pf;
-};
-
-unsigned int parse_opcode(unsigned int instruction) {
-  return 0xF & (instruction >> 28);
-};
-
-struct registerp parse_regp(unsigned int instruction) {
-  struct registerp reg = {
-    0b111 & instruction,
-    0b111 & (instruction >> 3),
-    0b111 & (instruction >> 6)
-  };
-
-  return reg;
-};
-unsigned int parse_ort_pointer(unsigned int instruction) {
-  return 0b111 & (instruction >> 25);
-};
-unsigned int parse_immediate(unsigned int instruction) {
-  return 0x1FFFFFF & instruction;
-};
+#include <sys/types.h>
+#include <sys/stat.h>
 
 off_t getSize(const char* cstrFileName) {
     struct stat st;
@@ -63,73 +13,65 @@ off_t getSize(const char* cstrFileName) {
     }
 };
 
-struct UMParseOutput parseUMZFile(const char* cstrFileName) {
-    struct UMParseOutput umpoParse;
-    umpoParse.program == (unsigned int*)NULL;
-    
-    // Check filesize:
+struct UM_ParseStatus parseFromFile(const char* cstrFileName) {
+    struct UM_ParseStatus parseStatus;
+    parseStatus.parsedProgram.program   = (unsigned int*) NULL;
+    parseStatus.status                  = UM_PARSED_STATUS_OK;
+
     off_t fileSize = getSize(cstrFileName);
 
     if (fileSize == -1) {
-        // File not found error
-        umpoParse.status = UM_PARSE_STATUS_FNF;
-        return umpoParse;
+        parseStatus.status = UM_PARSED_STATUS_FNF;
+        return parseStatus;
     }
-
-    unsigned long ulNrOpcodes = ((unsigned long) fileSize) / 4;
-    umpoParse.program = (unsigned int*) malloc(ulNrOpcodes*4);
-    umpoParse.programLen = ulNrOpcodes;
 
     FILE* fFile = fopen(cstrFileName, "rb");
-    printf("Number of bytes to read: %ld\n", ((size_t)ulNrOpcodes)*4 );
-
-    size_t retCode = fread(umpoParse.program, 4, (size_t)ulNrOpcodes,fFile);
-    if (retCode == 0) {
-        // Close the file stream
-        fclose(fFile);
-        // Deallocate
-        free((void *)umpoParse.program);
-        umpoParse.status = UM_PARSE_STATUS_PARSE_ERR;
-        umpoParse.program = NULL;
-        return umpoParse;
+    if (!fFile) {
+        parseStatus.status = UM_PARSED_STATUS_UE;
+        return parseStatus;
     }
 
-    //for (unsigned long i = 0; i < ulNrOpcodes ; i++) {
-    //    struct parse_info piParse = parse_quintuple(fFile);
-    //    if (piParse.status != PARSE_INFO_OK) {
-    //        // Close the file stream
-    //        fclose(fFile);
-    //        // Deallocate
-    //        free((void *)umpoParse.program);
-    //        umpoParse.status = UM_PARSE_STATUS_PARSE_ERR;
-    //        umpoParse.program = NULL;
-    //        return umpoParse;
-    //    }
-//
-    //    umpoParse.program[i] = piParse.opcode;
-    //}
+    parseStatus.parsedProgram.length    = (unsigned long)(fileSize/4);
+    parseStatus.parsedProgram.program   = malloc((unsigned long)fileSize);
+    
+    unsigned char* ucBuffer = malloc(4);
+    for (unsigned long i = 0 ; i < parseStatus.parsedProgram.length ; i++) {
+        if (fread(ucBuffer,1,4,fFile) == EOF) {
+            fclose(fFile);
+            free((void *)ucBuffer);
+            free((void *)parseStatus.parsedProgram.program);
+
+            parseStatus.parsedProgram.program   = (unsigned int*)NULL;
+            parseStatus.status                  = UM_PARSED_STATUS_UE;
+
+            return parseStatus;
+        }
+
+        unsigned int uiA = 0xFF000000   &   (((unsigned int) ucBuffer[0]) << 24);
+        unsigned int uiB = 0xFF0000     &   (((unsigned int) ucBuffer[1]) << 16);
+        unsigned int uiC = 0xFF00       &   (((unsigned int) ucBuffer[2]) << 8);
+        unsigned int uiD = 0xFF         &   (((unsigned int) ucBuffer[3]));
+
+        parseStatus.parsedProgram.program[i] = uiA | uiB | uiC | uiD;
+    }
 
     fclose(fFile);
-    umpoParse.status = UM_PARSE_STATUS_OK;
-    reformatUMPO(umpoParse);
-    return umpoParse;
-};
+    free((void *)ucBuffer);
 
-void reformatUMPO(struct UMParseOutput umpo) {
-    for (unsigned long i = 0; i < umpo.programLen; i++) {
-        unsigned int uiTmp = umpo.program[i];
-        umpo.program[i] = 0xFF & (uiTmp >> 24) |
-                        0xFF00 & (uiTmp >> 8) |
-                        0xFF0000 & (uiTmp << 8) |
-                        0xFF000000 & (uiTmp << 24);
-    }
+    return parseStatus;
 }
 
+int UM_writeToFile(struct UM_ParsedProgram ppProgram , const char *cstrFileName) {
+    FILE* fFile = fopen(cstrFileName, "w");
 
-void printProgramArr(struct UMParseOutput umpo){
-    printf("Length = %ld\nProgram content:\n",umpo.programLen);
-    for (unsigned long i = 0; i < umpo.programLen; i++) {
-        printf("%ld: %X\n", i,umpo.program[i]);
+    if (!fFile) {
+        return UM_FILE_WRITE_FNF;
     }
-    printf("\n");
-};
+
+    for (unsigned long i = 0 ; i < ppProgram.length ; i++) {
+        fprintf(fFile, "%u\n", ppProgram.program[i]);
+    }   
+
+    fclose(fFile);
+    
+}

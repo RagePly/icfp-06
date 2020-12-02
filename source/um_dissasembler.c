@@ -5,6 +5,11 @@ void writeDissasemblyToFile(unsigned int* uipUMProgram,
                 unsigned long ulProgramLen,
                 FILE* fpOutputStream,
                 unsigned int* uiBytesWritten) {
+    
+    unsigned int uiPlaceholder = 0;
+    if (uiBytesWritten == NULL) {
+        uiBytesWritten = &uiPlaceholder;
+    };
 
     *uiBytesWritten = 0;
 
@@ -65,7 +70,7 @@ void writeDissasemblyToFile(unsigned int* uipUMProgram,
             const char* uiAreg = cstrpRegisters[0x7 & (uiInstruction >> 25)];
             sprintf(cstrBuffer,"%s%lX    %s    %s, %d\n",cstrLeadingZeroes, ulPP,cstrOpcode,uiAreg, uiImmediate);
         } else {
-            if (uiOpcode > 0xD || 0xffffe00 & uiInstruction) {
+            if (uiOpcode > 0xD) {//|| 0xffffe00 & uiInstruction) {
                 sprintf(cstrBuffer,"%s%lX    NOP\n",cstrLeadingZeroes, ulPP);
             } else {
                 const char *uiRegC = cstrpRegisters[0x7 & uiInstruction];
