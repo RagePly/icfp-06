@@ -1,0 +1,6 @@
+set rega 0
+set regb 5
+set regc 33
+load rega regb
+out regc
+halt

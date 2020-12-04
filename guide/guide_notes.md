@@ -25,7 +25,7 @@ where lsb is Least-Significant-Byte. Before the operator is executed, the progra
 pointer should be advanced.
 #### opcodes
 * 0x0 - Conditional move (A = B if C) =>
-* 0x1 - Array index (A = C[B]) =>
+* 0x1 - Array index (A = B[C]) =>
 * 0x2 - Array Amendment (A[B] = C) =>
 * 0x3 - Addition A = (B + C) % 2^32
 * 0x4 - Multiplication A = (B*C) % 2^32
@@ -62,3 +62,41 @@ Consist of a main function that will handle initialising the UM, interpret each 
 Main loop has the following parameters
 
 UMMainLoop()
+
+
+# Input
+(\b.bb)(\v.vv)06FHPVboundvarHRAk
+
+(
+\
+b
+.
+b
+b
+)
+(
+\
+v
+.
+v
+v
+)
+0
+6
+F
+H
+P
+V
+b
+o
+u
+n
+d
+v
+a
+r
+H
+R
+A
+k
+

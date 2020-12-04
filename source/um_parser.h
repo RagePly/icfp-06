@@ -14,14 +14,16 @@
 #define UM_FILE_WRITE_FNF 2 // File Not found
 
 struct UM_ParsedProgram {
-    unsigned int* program;
+    unsigned int *program;
     unsigned long length;
 };
 
 struct UM_ParseStatus {
     struct UM_ParsedProgram parsedProgram;
-    unsigned int status;
+    unsigned int            status;
 };
+
+
 
 off_t getSize(const char *); // return bytes
 struct UM_ParseStatus parseFromFile(const char*);

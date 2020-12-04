@@ -145,6 +145,14 @@
                   position.  Otherwise the bit in register A receives
                   the 0 bit.
 
+                  Truth table
+
+                  | C | B | A |
+                  | 0 | 0 | 1 |
+                  | 0 | 1 | 1 |
+                  | 1 | 0 | 1 |
+                  | 1 | 1 | 0 |
+
   Other Operators.
   ----------------
 
